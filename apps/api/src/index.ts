@@ -5,6 +5,7 @@ import authRoutes from './routes/authRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import itemRoutes from './routes/itemRoutes';
 import transactionRoutes from './routes/transactionRoutes';
+import ocrRoutes from './routes/ocrRoutes';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/ocr', ocrRoutes);
 
 app.get('/health', (req: Request, res: Response) => {
     res.json({ status: 'ok', message: 'Backend API is running' });

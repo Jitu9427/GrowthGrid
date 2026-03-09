@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=@mini-erp/api\" \"npm run dev --workspace=web\"",
+    "dev": "concurrently \"npm run dev --workspace=@mini-erp/api\" \"npm run dev --workspace=web\" \"cd apps/ai-service && venv\\Scripts\\activate && uvicorn main:app --reload --port 8000\"",
     "build": "npm run build --workspaces --if-present",
     "start": "npm run start --workspaces --if-present"
   },
