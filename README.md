@@ -1,6 +1,6 @@
-# VyapaarAI - Smart Business Automation
+# GrowthGrid - Smart Business Automation
 
-**VyapaarAI** is an AI-powered Mini ERP designed specifically for small shop owners in India. It automates inventory management, sales tracking, and profit calculation using advanced OCR and AI technologies.
+**GrowthGrid** is an AI-powered Mini ERP designed specifically for small shop owners in India. It automates inventory management, sales tracking, and profit calculation using advanced OCR and AI technologies.
 
 ---
 
