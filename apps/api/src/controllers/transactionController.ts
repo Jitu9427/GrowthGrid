@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import pool, { query } from '../db';
 import { AuthRequest } from '../middleware/authMiddleware';
+import axios from 'axios';
 
 export const createSale = async (req: AuthRequest, res: Response) => {
     const { items, total_amount, notes } = req.body;
@@ -165,6 +166,50 @@ export const getTopItems = async (req: AuthRequest, res: Response) => {
         );
         res.json(result.rows);
     } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+export const getItemForecast = async (req: AuthRequest, res: Response) => {
+    const { itemId } = req.params;
+    try {
+        // 1. Get daily sales quantity for the last 30 days
+        const result = await query(
+            `SELECT 
+                DATE_TRUNC('day', t.transaction_date) as date,
+                SUM(ti.quantity) as total_qty
+            FROM transaction_items ti
+            JOIN transactions t ON ti.transaction_id = t.id
+            WHERE t.shop_id = $1 AND ti.item_id = $2 AND t.type = 'SALE'
+              AND t.transaction_date >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY date
+            ORDER BY date ASC`,
+            [req.user?.id, itemId]
+        );
+
+        // 2. Prepare history array (pad with zeros for days with no sales)
+        const historyMap: Record<string, number> = {};
+        result.rows.forEach(row => {
+            const dateStr = new Date(row.date).toISOString().split('T')[0];
+            historyMap[dateStr] = Number(row.total_qty);
+        });
+
+        const history: number[] = [];
+        for (let i = 29; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            history.push(historyMap[dateStr] || 0);
+        }
+
+        // 3. Call AI Service
+        const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+        const aiResponse = await axios.post(`${aiServiceUrl}/forecast`, {
+            history: history
+        });
+
+        res.json(aiResponse.data);
+    } catch (error: any) {
+        console.error('Forecast Error:', error.message);
         res.status(500).json({ message: error.message });
     }
 };
