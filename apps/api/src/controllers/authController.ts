@@ -11,6 +11,14 @@ const registerSchema = z.object({
     password: z.string().min(6),
 });
 
+const updateProfileSchema = z.object({
+    owner_name: z.string().min(2).optional(),
+    shop_name: z.string().min(2).optional(),
+    language_pref: z.string().max(10).optional(),
+});
+
+import { AuthRequest } from '../middleware/authMiddleware';
+
 export const register = async (req: Request, res: Response) => {
     try {
         const validatedData = registerSchema.parse(req.body);
@@ -65,10 +73,39 @@ export const login = async (req: Request, res: Response) => {
                 owner_name: user.owner_name,
                 shop_name: user.shop_name,
                 email: user.email,
+                language_pref: user.language_pref,
             },
             token
         });
     } catch (error: any) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+export const getMe = async (req: AuthRequest, res: Response) => {
+    try {
+        const result = await query(
+            'SELECT id, owner_name, shop_name, email, language_pref FROM shops WHERE id = $1',
+            [req.user?.id]
+        );
+        res.json(result.rows[0]);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateProfile = async (req: AuthRequest, res: Response) => {
+    try {
+        const validatedData = updateProfileSchema.parse(req.body);
+        const { owner_name, shop_name, language_pref } = validatedData;
+
+        const result = await query(
+            'UPDATE shops SET owner_name = COALESCE($1, owner_name), shop_name = COALESCE($2, shop_name), language_pref = COALESCE($3, language_pref) WHERE id = $4 RETURNING id, owner_name, shop_name, email, language_pref',
+            [owner_name, shop_name, language_pref, req.user?.id]
+        );
+
+        res.json(result.rows[0]);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
     }
 };
