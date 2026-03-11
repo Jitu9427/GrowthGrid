@@ -45,6 +45,9 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
         for (const item of items) {
             let itemId = item.id;
             const cleanName = item.name ? item.name.trim() : 'Unknown Item';
+            const qty = Math.round(parseFloat(item.quantity) || 0);
+            const purchasePrice = parseFloat(item.price) || 0;
+            const sellingPrice = parseFloat(item.selling_price) || purchasePrice; // Default to purchase if not provided
 
             // 1. Try to find the item ID if not provided
             if (!itemId) {
@@ -55,32 +58,40 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
 
                 if (itemLookup.rows.length > 0) {
                     itemId = itemLookup.rows[0].id;
+                    // Update purchase price and selling price for existing item
+                    await client.query(
+                        'UPDATE items SET purchase_price = $1, selling_price = $2 WHERE id = $3',
+                        [purchasePrice, sellingPrice, itemId]
+                    );
                 } else {
                     // 2. AUTO-CREATE: If item doesn't exist, create it!
                     console.log(`Creating new item from scan: ${cleanName}`);
                     const newItem = await client.query(
-                        'INSERT INTO items (shop_id, name, normalized_name, purchase_price, selling_price, current_stock) VALUES ($1, $2, $3, $4, $4, 0) RETURNING id',
-                        [req.user?.id, cleanName, cleanName.toLowerCase(), item.price]
+                        'INSERT INTO items (shop_id, name, normalized_name, purchase_price, selling_price, current_stock) VALUES ($1, $2, $3, $4, $5, 0) RETURNING id',
+                        [req.user?.id, cleanName, cleanName.toLowerCase(), purchasePrice, sellingPrice]
                     );
                     itemId = newItem.rows[0].id;
                 }
+            } else {
+                // If ID is provided, update prices anyway to reflect the latest bill/shopkeeper choice
+                await client.query(
+                    'UPDATE items SET purchase_price = $1, selling_price = $2 WHERE id = $3 AND shop_id = $4',
+                    [purchasePrice, sellingPrice, itemId, req.user?.id]
+                );
             }
 
             // 3. Add to transaction and update stock
             if (itemId) {
-                const qty = Math.round(parseFloat(item.quantity) || 0);
-                const price = parseFloat(item.price) || 0;
-
                 await client.query(
                     'INSERT INTO transaction_items (transaction_id, item_id, quantity, price_per_unit, subtotal) VALUES ($1, $2, $3, $4, $5)',
-                    [transactionId, itemId, qty, price, qty * price]
+                    [transactionId, itemId, qty, purchasePrice, qty * purchasePrice]
                 );
 
                 await client.query(
                     'UPDATE items SET current_stock = current_stock + $1 WHERE id = $2 AND shop_id = $3',
                     [qty, itemId, req.user?.id]
                 );
-                console.log(`Success: Added ${qty} to ${cleanName}`);
+                console.log(`Success: Added ${qty} to ${cleanName} @ P:₹${purchasePrice} S:₹${sellingPrice}`);
             }
         }
         await client.query('COMMIT');
